@@ -1,6 +1,8 @@
 package versioner
 
 import (
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -13,6 +15,7 @@ import (
 type Git struct {
 	basedir string
 	repo    *git.Repository
+	mtx     sync.Mutex
 }
 
 // New returns a reference to a Git using provided directory as
@@ -20,43 +23,49 @@ type Git struct {
 func NewGit(basedir string) (*Git, error) {
 	repo, err := git.PlainInit(basedir, false)
 	if err != nil {
-		return nil, err
+		repo, err = git.PlainOpen(basedir)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return &Git{basedir, repo}, nil
+	return &Git{basedir: basedir, repo: repo}, nil
 }
 
 // Commit commits the current state of the repository. Creates a
 // commit with a default message and the current time.
-func (g *Git) Commit() error {
+func (g *Git) Commit(message string) error {
+	g.mtx.Lock()
+	defer g.mtx.Unlock()
 	wt, err := g.repo.Worktree()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get worktree: %w", err)
 	}
 	if _, err := wt.Add("."); err != nil {
-		return err
+		return fmt.Errorf("failed to add files: %w", err)
 	}
-	_, err = wt.Commit(
-		"auto commit",
-		&git.CommitOptions{
-			Author: &object.Signature{
-				Name:  "Tag Bag System",
-				Email: "tagbag@example.com",
-				When:  time.Now(),
-			},
+	opts := &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Tag Bag System",
+			Email: "tagbag@example.com",
+			When:  time.Now(),
 		},
-	)
-	return err
+	}
+	if _, err := wt.Commit(message, opts); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+	return nil
 }
 
 // Snapshot creates a tag for the current state of the repository.
 func (g *Git) Snapshot(name string) error {
+	g.mtx.Lock()
+	defer g.mtx.Unlock()
 	ref, err := g.repo.Head()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get head: %w", err)
 	}
-	_, err = g.repo.CreateTag(name, ref.Hash(), nil)
-	if err != nil {
-		return err
+	if _, err = g.repo.CreateTag(name, ref.Hash(), nil); err != nil {
+		return fmt.Errorf("failed to create tag: %w", err)
 	}
 	return nil
 }

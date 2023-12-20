@@ -8,35 +8,49 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/containers/image/v5/directory"
 	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
 )
 
-// Commiter implements commit and commit is called everytime a blob is
-// saved to the Storage.
-type Committer interface {
-	Commit() error
+// Option is a function that can be used to configure a Storage.
+type Option func(*Storage)
+
+// WithCommitter returns an Option that sets the committer.
+func WithCommitter(committer Committer) Option {
+	return func(s *Storage) { s.committer = committer }
 }
 
+// Commiter implements commit and commit is called everytime a blob is saved to
+// the Storage.
+type Committer interface {
+	Commit(message string) error
+}
+
+// Storage handles the storage of multiple images. It is used to store multiple
+// images in a single directory while deduplicating blobs.
 type Storage struct {
 	types.ImageReference
-	seen     map[digest.Digest]types.BlobInfo
-	curimg   string
-	basedir  string
-	commiter Committer
+	seen      map[digest.Digest]types.BlobInfo
+	curimg    string
+	basedir   string
+	committer Committer
 }
 
-// New returns a reference to a Storage using provided directory as base
-// (root). Property "seen" is used to we keep track of all blobs we have
-// already seen (pulled) across all stored images.
-func New(basedir string, committer Committer) *Storage {
-	return &Storage{
-		basedir:  basedir,
-		seen:     map[digest.Digest]types.BlobInfo{},
-		commiter: committer,
+// New returns a reference to a Storage using provided directory as base (root).
+// Property "seen" is used to we keep track of all blobs we have already seen
+// across all stored images.
+func New(basedir string, opts ...Option) *Storage {
+	storage := &Storage{
+		basedir: basedir,
+		seen:    map[digest.Digest]types.BlobInfo{},
 	}
+	for _, opt := range opts {
+		opt(storage)
+	}
+	return storage
 }
 
 // CurrentImage returns the inner image we are operating on.
@@ -47,6 +61,43 @@ func (t *Storage) CurrentImage() string {
 	return t.curimg
 }
 
+// Images list all images stored in the Storage. Traverses the Storage base
+// directory and returns all subdirectories that do not contain a subdir or
+// name starts with ".".
+func (t *Storage) Images() ([]string, error) {
+	var images []string
+	walker := func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		} else if !d.IsDir() {
+			return nil
+		}
+		dirname := filepath.Base(d.Name())
+		if strings.HasPrefix(dirname, ".") {
+			return filepath.SkipDir
+		}
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return fmt.Errorf("failed to read dir: %w", err)
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				return nil
+			}
+		}
+		image, err := filepath.Rel(t.basedir, path)
+		if err != nil {
+			return fmt.Errorf("failed to get rel path: %w", err)
+		}
+		images = append(images, image)
+		return nil
+	}
+	if err := filepath.WalkDir(t.basedir, walker); err != nil {
+		return nil, fmt.Errorf("fail to traverse storage: %w", err)
+	}
+	return images, nil
+}
+
 // Image sets the current inner Image inside the Storage. A Storage allows
 // "write to" and "read from" on a single Image at a given time. Creates or
 // uses an already existent subdirectory named after the Image name.
@@ -54,17 +105,17 @@ func (t *Storage) Image(image string) error {
 	gendir := path.Join(t.basedir, image)
 	if _, err := os.Stat(gendir); err != nil {
 		if !os.IsNotExist(err) {
-			return err
+			return fmt.Errorf("failed to stat dir: %w", err)
 		}
 		if err := os.MkdirAll(gendir, 0700); err != nil {
-			return err
+			return fmt.Errorf("failed to create dir: %w", err)
 		}
 	}
 	// Here we enable a regular containers/image Directory transport for
 	// the Image subdirectory we are about to start dealing with.
 	inref, err := directory.NewReference(gendir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create dir ref: %w", err)
 	}
 	t.ImageReference = inref
 	t.curimg = image
@@ -81,10 +132,7 @@ func (t *Storage) NewImageSource(
 	if err != nil {
 		return nil, err
 	}
-	return &srcwrap{
-		basedir:     t.basedir,
-		ImageSource: src,
-	}, nil
+	return &srcwrap{basedir: t.basedir, ImageSource: src}, nil
 }
 
 // NewImageDestination returns a handler used to write to the current
@@ -100,7 +148,8 @@ func (t *Storage) NewImageDestination(
 	return &destwrap{
 		ImageDestination: dst,
 		seen:             t.seen,
-		committer:        t.commiter,
+		committer:        t.committer,
+		image:            t.curimg,
 	}, nil
 }
 
@@ -111,6 +160,7 @@ func (t *Storage) NewImageDestination(
 // property. XXX sync.Mutex, alstublieft.
 type destwrap struct {
 	types.ImageDestination
+	image     string
 	seen      map[digest.Digest]types.BlobInfo
 	committer Committer
 }
@@ -140,10 +190,14 @@ func (d *destwrap) PutBlob(
 // calls the underlying committer function so we now it is time
 // to commit the changes and close the underlying dest Image.
 func (d *destwrap) Close() error {
-	if err := d.committer.Commit(); err != nil {
-		return err
+	if err := d.ImageDestination.Close(); err != nil {
+		return fmt.Errorf("failed to close dest: %w", err)
 	}
-	return d.ImageDestination.Close()
+	if d.committer == nil {
+		return nil
+	}
+	message := fmt.Sprintf("Committing %s", d.image)
+	return d.committer.Commit(message)
 }
 
 // TryReusingBlob checks if a blob has already been "seen", pulled.
@@ -157,6 +211,7 @@ func (d *destwrap) TryReusingBlob(
 	substitute bool,
 ) (bool, types.BlobInfo, error) {
 	if binfo, ok := d.seen[info.Digest]; ok {
+		fmt.Println("reusing")
 		return true, binfo, nil
 	}
 	return d.ImageDestination.TryReusingBlob(
@@ -178,19 +233,14 @@ type srcwrap struct {
 // to avoid reading all blobs every time.
 func (s *srcwrap) findBlob(dgst digest.Digest) (string, error) {
 	var blobpath string
-	if err := filepath.Walk(
-		s.basedir,
-		func(path string, info fs.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.Name() == dgst.Hex() {
-				blobpath = path
-			}
-			return nil
-		},
-	); err != nil {
-		return "", err
+	walker := func(path string, info fs.FileInfo, err error) error {
+		if info.Name() == dgst.Hex() {
+			blobpath = path
+		}
+		return nil
+	}
+	if err := filepath.Walk(s.basedir, walker); err != nil {
+		return "", fmt.Errorf("fail to traverse storage: %w", err)
 	}
 	if len(blobpath) == 0 {
 		return "", fmt.Errorf("blob %s not found", dgst.Hex())
