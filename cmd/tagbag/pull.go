@@ -36,6 +36,10 @@ var pullCommand = &cli.Command{
 			Usage:   "Destination tarball",
 			Value:   "./tagbag.tgz",
 		},
+		&cli.StringFlag{
+			Name:  "authfile",
+			Usage: "Path of the authentication file",
+		},
 		&cli.BoolFlag{
 			Name:  "all",
 			Usage: "Pull all images (manifest lists)",
@@ -75,7 +79,9 @@ var pullCommand = &cli.Command{
 				storage,
 				srcref,
 				&copy.Options{
-					SourceCtx:          &types.SystemContext{},
+					SourceCtx: &types.SystemContext{
+						AuthFilePath: c.String("authfile"),
+					},
 					DestinationCtx:     &types.SystemContext{},
 					ReportWriter:       os.Stdout,
 					ImageListSelection: imglist,

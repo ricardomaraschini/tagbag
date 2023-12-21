@@ -37,6 +37,10 @@ var pushCommand = &cli.Command{
 			Aliases:  []string{"d"},
 			Usage:    "Destination registry address",
 		},
+		&cli.StringFlag{
+			Name:  "authfile",
+			Usage: "Path of the authentication file",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		tempdir := c.String("temp")
@@ -75,8 +79,10 @@ var pushCommand = &cli.Command{
 				dstref,
 				storage,
 				&copy.Options{
+					DestinationCtx: &types.SystemContext{
+						AuthFilePath: c.String("authfile"),
+					},
 					SourceCtx:          &types.SystemContext{},
-					DestinationCtx:     &types.SystemContext{},
 					ReportWriter:       os.Stdout,
 					ImageListSelection: copy.CopyAllImages,
 				},
