@@ -41,6 +41,11 @@ var pushCommand = &cli.Command{
 			Name:  "authfile",
 			Usage: "Path of the authentication file",
 		},
+		&cli.StringSliceFlag{
+			Name:    "overlay",
+			Aliases: []string{"o"},
+			Usage:   "Overlay tarball paths",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		tempdir := c.String("temp")
@@ -59,6 +64,11 @@ var pushCommand = &cli.Command{
 		defer os.RemoveAll(tempdir)
 		if err := tgz.Uncompress(c.String("source"), tempdir); err != nil {
 			return fmt.Errorf("failed to uncompress tarball: %w", err)
+		}
+		for _, overlay := range c.StringSlice("overlay") {
+			if err := tgz.Uncompress(overlay, tempdir); err != nil {
+				return fmt.Errorf("failed to uncompress overlay: %w", err)
+			}
 		}
 		storage := storage.New(tempdir)
 		images, err := storage.Images()

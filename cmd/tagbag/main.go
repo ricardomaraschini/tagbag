@@ -9,9 +9,13 @@ import (
 
 func main() {
 	var app = &cli.App{
-		Name:     "tagbag",
-		Usage:    "Deduplicated container image tar balls",
-		Commands: []*cli.Command{pullCommand, pushCommand},
+		Name:  "tagbag",
+		Usage: "Deduplicated container image tar balls",
+		Commands: []*cli.Command{
+			pullCommand,
+			pushCommand,
+			diffCommand,
+		},
 	}
 	if err := app.Run(os.Args); err != nil {
 		logrus.Fatal(err)

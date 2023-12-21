@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/containers/image/v5/directory"
@@ -15,42 +16,23 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-// Option is a function that can be used to configure a Storage.
-type Option func(*Storage)
-
-// WithCommitter returns an Option that sets the committer.
-func WithCommitter(committer Committer) Option {
-	return func(s *Storage) { s.committer = committer }
-}
-
-// Commiter implements commit and commit is called everytime a blob is saved to
-// the Storage.
-type Committer interface {
-	Commit(message string) error
-}
-
 // Storage handles the storage of multiple images. It is used to store multiple
 // images in a single directory while deduplicating blobs.
 type Storage struct {
 	types.ImageReference
-	seen      map[digest.Digest]types.BlobInfo
-	curimg    string
-	basedir   string
-	committer Committer
+	seen    map[digest.Digest]types.BlobInfo
+	curimg  string
+	basedir string
 }
 
 // New returns a reference to a Storage using provided directory as base (root).
 // Property "seen" is used to we keep track of all blobs we have already seen
 // across all stored images.
-func New(basedir string, opts ...Option) *Storage {
-	storage := &Storage{
+func New(basedir string) *Storage {
+	return &Storage{
 		basedir: basedir,
 		seen:    map[digest.Digest]types.BlobInfo{},
 	}
-	for _, opt := range opts {
-		opt(storage)
-	}
-	return storage
 }
 
 // CurrentImage returns the inner image we are operating on.
@@ -90,6 +72,73 @@ func (t *Storage) Images() ([]string, error) {
 			return fmt.Errorf("failed to get rel path: %w", err)
 		}
 		images = append(images, image)
+		return nil
+	}
+	if err := filepath.WalkDir(t.basedir, walker); err != nil {
+		return nil, fmt.Errorf("fail to traverse storage: %w", err)
+	}
+	return images, nil
+}
+
+// DeleteBlob deletes a blob from the current Storage. The file name must be
+// a blob file name, i.e. a file name that is a valid digest.
+func (t *Storage) DeleteBlob(name string) error {
+	matches, _ := regexp.MatchString("^[a-fA-F0-9]{64}$", name)
+	if !matches {
+		return nil
+	}
+	walker := func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || d.Name() != name {
+			return nil
+		}
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("failed to remove blob: %w", err)
+		}
+		dirname := filepath.Dir(path)
+		entries, err := os.ReadDir(filepath.Dir(path))
+		if err != nil {
+			return fmt.Errorf("failed to read dir: %w", err)
+		}
+		if len(entries) != 0 {
+			return nil
+		}
+		if err := os.Remove(dirname); err != nil {
+			return fmt.Errorf("failed to remove dir: %w", err)
+		}
+		return nil
+	}
+	if err := filepath.WalkDir(t.basedir, walker); err != nil {
+		return fmt.Errorf("fail to traverse storage: %w", err)
+	}
+	return nil
+}
+
+// Files returns a list of all files stored in the Storage, includes files in
+// all Images.
+func (t *Storage) Files() (map[string]os.FileInfo, error) {
+	images := map[string]os.FileInfo{}
+	walker := func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		} else if d.IsDir() {
+			return nil
+		}
+		dirname := filepath.Base(d.Name())
+		if strings.HasPrefix(dirname, ".") {
+			return filepath.SkipDir
+		}
+		relpath, err := filepath.Rel(t.basedir, path)
+		if err != nil {
+			return fmt.Errorf("failed to get rel path: %w", err)
+		}
+		stat, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("failed to stat file: %w", err)
+		}
+		images[relpath] = stat
 		return nil
 	}
 	if err := filepath.WalkDir(t.basedir, walker); err != nil {
@@ -148,7 +197,6 @@ func (t *Storage) NewImageDestination(
 	return &destwrap{
 		ImageDestination: dst,
 		seen:             t.seen,
-		committer:        t.committer,
 		image:            t.curimg,
 	}, nil
 }
@@ -160,9 +208,8 @@ func (t *Storage) NewImageDestination(
 // property. XXX sync.Mutex, alstublieft.
 type destwrap struct {
 	types.ImageDestination
-	image     string
-	seen      map[digest.Digest]types.BlobInfo
-	committer Committer
+	image string
+	seen  map[digest.Digest]types.BlobInfo
 }
 
 // PutBlob calls underlying ImageDestination PutBlob function and
@@ -184,20 +231,6 @@ func (d *destwrap) PutBlob(
 	}
 	d.seen[binfo.Digest] = binfo
 	return binfo, nil
-}
-
-// Close is called when the write to the Image is finished. It
-// calls the underlying committer function so we now it is time
-// to commit the changes and close the underlying dest Image.
-func (d *destwrap) Close() error {
-	if err := d.ImageDestination.Close(); err != nil {
-		return fmt.Errorf("failed to close dest: %w", err)
-	}
-	if d.committer == nil {
-		return nil
-	}
-	message := fmt.Sprintf("Committing %s", d.image)
-	return d.committer.Commit(message)
 }
 
 // TryReusingBlob checks if a blob has already been "seen", pulled.
