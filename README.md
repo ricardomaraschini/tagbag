@@ -1,4 +1,6 @@
-![Banner](banner.png)
+<p align="center">
+    <img src="banner.png" alt="Banner">
+</p>
 
 Embark on a journey with TAGBAG, the mystical tool that bundles multiple container
 images into a single, nifty `tgz` file. It's like a magic trick for your images,
