@@ -5,39 +5,35 @@ on:
       - '*'
 jobs:
   build-and-release:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        go-version: [1.21]
+    runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
-      - name: Build project
-        run: make
-      - name: Rename Binary
-        run: mv ./output/bin/tagbag ./output/bin/tagbag-${{ matrix.os }}
-      - name: Create Release
-        if: matrix.os == 'ubuntu-latest'
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          go-version: "1.21"
+
+      - name: Build for linux/amd64
+        run: |
+          GOOS=linux GOARCH=amd64 make
+          mv ./output/bin/tagbag ./output/bin/tagbag-linux-amd64
+
+      - name: Build for darwin/amd64
+        run: |
+          GOOS=darwin GOARCH=amd64 make
+          mv ./output/bin/tagbag ./output/bin/tagbag-darwin-amd64
+
+      - name: Build for darwin/arm64
+        run: |
+          GOOS=darwin GOARCH=arm64 make
+          mv ./output/bin/tagbag ./output/bin/tagbag-darwin-arm64
+
+      - name: Publish release
+        uses: marvinpinto/action-automatic-releases@latest
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: false
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./output/bin/tagbag-${{ matrix.os }}
-          asset_name: tagbag-${{ matrix.os }}
-          asset_content_type: application/octet-stream
+          files: |
+            output/bin/tagbag-*
