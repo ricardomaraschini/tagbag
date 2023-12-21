@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/containers/image/v5/directory"
 	"github.com/containers/image/v5/types"
@@ -20,9 +21,10 @@ import (
 // images in a single directory while deduplicating blobs.
 type Storage struct {
 	types.ImageReference
-	seen    map[digest.Digest]types.BlobInfo
+	seen    *Seen
 	curimg  string
 	basedir string
+	mtx     sync.Mutex
 }
 
 // New returns a reference to a Storage using provided directory as base (root).
@@ -31,7 +33,7 @@ type Storage struct {
 func New(basedir string) *Storage {
 	return &Storage{
 		basedir: basedir,
-		seen:    map[digest.Digest]types.BlobInfo{},
+		seen:    NewSeen(),
 	}
 }
 
@@ -209,7 +211,7 @@ func (t *Storage) NewImageDestination(
 type destwrap struct {
 	types.ImageDestination
 	image string
-	seen  map[digest.Digest]types.BlobInfo
+	seen  *Seen
 }
 
 // PutBlob calls underlying ImageDestination PutBlob function and
@@ -229,7 +231,7 @@ func (d *destwrap) PutBlob(
 	if err != nil {
 		return binfo, err
 	}
-	d.seen[binfo.Digest] = binfo
+	d.seen.Add(binfo.Digest, binfo)
 	return binfo, nil
 }
 
@@ -243,7 +245,7 @@ func (d *destwrap) TryReusingBlob(
 	cache types.BlobInfoCache,
 	substitute bool,
 ) (bool, types.BlobInfo, error) {
-	if binfo, ok := d.seen[info.Digest]; ok {
+	if binfo, ok := d.seen.Get(info.Digest); ok {
 		fmt.Println("reusing")
 		return true, binfo, nil
 	}

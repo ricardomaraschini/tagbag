@@ -50,7 +50,7 @@ func TestPutBlob(t *testing.T) {
 	binfo, err = dst.PutBlob(ctx, buf, binfo, nil, false)
 	assert.NoError(t, err)
 	dstw := dst.(*destwrap)
-	_, ok := dstw.seen[binfo.Digest]
+	_, ok := dstw.seen.Get(binfo.Digest)
 	assert.True(t, ok)
 	blobpath := path.Join(tmpdir, "img:latest", binfo.Digest.Hex())
 	stored, err := os.ReadFile(blobpath)
