@@ -2,6 +2,8 @@
     <img src="banner.png" alt="Banner">
 </p>
 
+_This README was created by ChatGPT_
+
 Embark on a journey with TAGBAG, the mystical tool that bundles multiple container
 images into a single, nifty `tgz` file. It's like a magic trick for your images,
 where the duplicated blobs get vanished - Poof! - ensuring each one is as unique as
