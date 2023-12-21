@@ -61,3 +61,33 @@ $ tagbag push                   \
 Remember, if you've captured `alpine:latest` in your tgz spell, it'll be released into
 the wilds of `docker.io/myaccount/alpine:latest`. All the captured images, regardless
 of their origin, will find a new home in this singular mystical repository.
+
+
+### Brewing Diffs Between Mystical Bundles
+
+In the realm of TAGBAG, you have the power to unveil the subtle changes between different
+versions of a given `tgz` bundle. First, ensure both versions of your mystical bundle are
+safely harbored in your local sanctum. Then, chant the following incantation:
+
+
+```
+$ tagbag diff			\
+	--source v1.0.0.tgz	\
+	--target v2.0.0.tgz	\
+	-d overlay.tgz
+```
+
+With this spell cast, the veil is lifted, revealing a diff – a magical overlay that
+captures the essence of change. To bestow this newfound knowledge upon an existing
+tgz, perform the following ritual:
+
+
+```
+$ tagbag push			\
+	--source v1.0.0.tgz	\
+	--overlay overlay.tgz	\
+	-d docker.io/myaccount
+```
+
+This will turn your `v1.0.0.tgz` into a `v2.0.0.tgz` and then push to the remote
+registry.
