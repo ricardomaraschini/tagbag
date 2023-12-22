@@ -37,10 +37,11 @@ type Authentications struct {
 // When Pushing the difference to a destination registry it is important to note that
 // the other layers (the ones not included in the 'difference') exist.
 type Incremental struct {
-	tmpdir string
-	polctx *signature.PolicyContext
-	report io.Writer
-	auths  Authentications
+	tmpdir    string
+	polctx    *signature.PolicyContext
+	report    io.Writer
+	auths     Authentications
+	selection copy.ImageListSelection
 }
 
 // Push pushes the incremental difference stored in the oci-archive tarball pointed by
@@ -67,8 +68,9 @@ func (inc *Incremental) Push(ctx context.Context, src, dst string) error {
 		dstref,
 		srcref,
 		&copy.Options{
-			ReportWriter: inc.report,
-			SourceCtx:    &types.SystemContext{},
+			ReportWriter:       inc.report,
+			SourceCtx:          &types.SystemContext{},
+			ImageListSelection: inc.selection,
 			DestinationCtx: &types.SystemContext{
 				DockerAuthConfig: inc.auths.PushAuth,
 			},
@@ -114,8 +116,9 @@ func (inc *Incremental) Pull(ctx context.Context, base, final string) (io.ReadCl
 		destref,
 		finalref,
 		&copy.Options{
-			ReportWriter:   inc.report,
-			DestinationCtx: &types.SystemContext{},
+			ReportWriter:       inc.report,
+			DestinationCtx:     &types.SystemContext{},
+			ImageListSelection: inc.selection,
 			SourceCtx: &types.SystemContext{
 				DockerAuthConfig: inc.auths.FinalAuth,
 			},
@@ -135,7 +138,11 @@ func (inc *Incremental) Pull(ctx context.Context, base, final string) (io.ReadCl
 // the incremental difference between two images (Pull) or send the incremental towards
 // a destination (Push).
 func New(opts ...Option) *Incremental {
-	inc := &Incremental{tmpdir: os.TempDir(), report: io.Discard}
+	inc := &Incremental{
+		tmpdir:    os.TempDir(),
+		report:    io.Discard,
+		selection: copy.CopySystemImage,
+	}
 	for _, opt := range opts {
 		opt(inc)
 	}
