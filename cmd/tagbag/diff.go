@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"tagbag/storage"
-	"tagbag/tgz"
 
 	"github.com/urfave/cli/v2"
+
+	"github.com/ricardomaraschini/tagbag/storage"
+	"github.com/ricardomaraschini/tagbag/tgz"
 )
 
 var diffCommand = &cli.Command{

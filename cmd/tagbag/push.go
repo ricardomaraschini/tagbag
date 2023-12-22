@@ -11,8 +11,8 @@ import (
 	"github.com/containers/image/v5/types"
 	"github.com/urfave/cli/v2"
 
-	"tagbag/storage"
-	"tagbag/tgz"
+	"github.com/ricardomaraschini/tagbag/storage"
+	"github.com/ricardomaraschini/tagbag/tgz"
 )
 
 var pushCommand = &cli.Command{
