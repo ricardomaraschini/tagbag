@@ -3,6 +3,7 @@ package incremental
 import (
 	"io"
 
+	"github.com/containers/image/v5/copy"
 	"github.com/containers/image/v5/types"
 )
 
@@ -58,5 +59,12 @@ func WithFinalAuth(user, pass string) Option {
 func WithTempDir(dir string) Option {
 	return func(inc *Incremental) {
 		inc.tmpdir = dir
+	}
+}
+
+// WithAllArchitectures sets the selection to include all the architectures.
+func WithAllArchitectures() Option {
+	return func(inc *Incremental) {
+		inc.selection = copy.CopyAllImages
 	}
 }
