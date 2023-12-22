@@ -33,7 +33,6 @@ type destwrap struct {
 // layer info. If it is not, we return false and the layer info. We use the
 // manifest to check if the layer is already present.
 func (d *destwrap) TryReusingBlob(ctx context.Context, info types.BlobInfo, cache types.BlobInfoCache, substitute bool) (bool, types.BlobInfo, error) {
-	fmt.Println("TryReusingBlob", info.Digest)
 	for _, layer := range d.manifest.LayerInfos() {
 		if layer.Digest == info.Digest {
 			return true, info, nil
