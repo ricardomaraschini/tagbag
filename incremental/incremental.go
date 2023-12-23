@@ -44,6 +44,50 @@ type Incremental struct {
 	selection copy.ImageListSelection
 }
 
+// PushVet verifies if all the layers not included in the incremental difference exist
+// in the destination registry. If not, it returns an error.
+func (inc *Incremental) PushVet(ctx context.Context, src, dst string) error {
+	dst = fmt.Sprintf("docker://%s", dst)
+	dstref, err := alltransports.ParseImageName(dst)
+	if err != nil {
+		return fmt.Errorf("error parsing destination reference: %w", err)
+	}
+	sysctx := &types.SystemContext{DockerAuthConfig: inc.auths.PushAuth}
+	mans, err := FetchManifests(ctx, dstref, sysctx)
+	if err != nil {
+		return fmt.Errorf("error fetching destination manifests: %w", err)
+	}
+	dict := BuildLayersDictionary(mans...)
+	srcref, err := alltransports.ParseImageName(fmt.Sprintf("oci-archive:%s", src))
+	if err != nil {
+		return fmt.Errorf("error parsing source reference: %w", err)
+	}
+	srcimage, err := srcref.NewImageSource(ctx, &types.SystemContext{})
+	if err != nil {
+		return fmt.Errorf("error creating source image: %w", err)
+	}
+	defer srcimage.Close()
+	srcmans, err := FetchManifests(ctx, srcref, &types.SystemContext{})
+	if err != nil {
+		return fmt.Errorf("error fetching source manifests: %w", err)
+	}
+	for _, srcman := range srcmans {
+		for _, layer := range srcman.LayerInfos() {
+			binfo := types.BlobInfo{Digest: layer.Digest}
+			blob, _, err := srcimage.GetBlob(ctx, binfo, nil)
+			if err == nil {
+				blob.Close()
+				continue
+			}
+			if _, ok := dict[layer.Digest]; ok {
+				continue
+			}
+			return fmt.Errorf("%s not found in destination", layer.Digest)
+		}
+	}
+	return nil
+}
+
 // Push pushes the incremental difference stored in the oci-archive tarball pointed by
 // src to the destination registry pointed by to. Be aware that if the remote registry
 // does not contain one or more of the layers not included in the incremental difference

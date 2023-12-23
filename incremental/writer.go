@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/containers/image/v5/manifest"
 	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
 )
@@ -40,51 +39,6 @@ func (d *destwrap) TryReusingBlob(ctx context.Context, info types.BlobInfo, cach
 	return false, info, nil
 }
 
-// processList expects raw to point to a manifest list and will iterate over
-// the children and return them.
-func processList(ctx context.Context, fromref types.ImageSource, raw []byte, mime string) ([]manifest.Manifest, error) {
-	list, err := manifest.ListFromBlob(raw, mime)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing manifests: %w", err)
-	}
-	children := []manifest.Manifest{}
-	for _, digest := range list.Instances() {
-		raw, mime, err := fromref.GetManifest(ctx, &digest)
-		if err != nil {
-			return nil, fmt.Errorf("error getting child manifest: %w", err)
-		}
-		man, err := manifest.FromBlob(raw, mime)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing manifest: %w", err)
-		}
-		children = append(children, man)
-	}
-	return children, nil
-}
-
-// fetchManifests returns the list of manifests that are present in the
-// source image. In case of a manifest list it will iterate over the
-// children and return them.
-func fetchManifests(ctx context.Context, from types.ImageReference, sysctx *types.SystemContext) ([]manifest.Manifest, error) {
-	fromref, err := from.NewImageSource(ctx, sysctx)
-	if err != nil {
-		return nil, fmt.Errorf("error creating image source: %w", err)
-	}
-	defer fromref.Close()
-	raw, mime, err := fromref.GetManifest(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error getting manifest: %w", err)
-	}
-	if manifest.MIMETypeIsMultiImage(mime) {
-		return processList(ctx, fromref, raw, mime)
-	}
-	man, err := manifest.FromBlob(raw, mime)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing manifest: %w", err)
-	}
-	return []manifest.Manifest{man}, nil
-}
-
 // NewWriter is capable of providing an incremental copy of an image using
 // 'from' as base and storing the result in 'to'.
 func NewWriter(ctx context.Context, from types.ImageReference, to types.ImageReference, sysctx *types.SystemContext) (*Writer, error) {
@@ -92,21 +46,15 @@ func NewWriter(ctx context.Context, from types.ImageReference, to types.ImageRef
 	if err != nil {
 		return nil, fmt.Errorf("error creating destination: %w", err)
 	}
-	manifests, err := fetchManifests(ctx, from, sysctx)
+	mans, err := FetchManifests(ctx, from, sysctx)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching manifests: %w", err)
-	}
-	mandict := map[digest.Digest]bool{}
-	for _, man := range manifests {
-		for _, layer := range man.LayerInfos() {
-			mandict[layer.Digest] = true
-		}
 	}
 	return &Writer{
 		ImageReference: to,
 		dest: &destwrap{
 			ImageDestination: toref,
-			manifests:        mandict,
+			manifests:        BuildLayersDictionary(mans...),
 		},
 	}, nil
 }
