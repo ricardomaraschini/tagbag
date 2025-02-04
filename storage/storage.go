@@ -246,7 +246,6 @@ func (d *destwrap) TryReusingBlob(
 	substitute bool,
 ) (bool, types.BlobInfo, error) {
 	if binfo, ok := d.seen.Get(info.Digest); ok {
-		fmt.Println("reusing")
 		return true, binfo, nil
 	}
 	return d.ImageDestination.TryReusingBlob(

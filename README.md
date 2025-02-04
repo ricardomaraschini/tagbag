@@ -2,18 +2,19 @@
     <img src="banner.png" alt="Banner">
 </p>
 
-_This README was created by ChatGPT_
+_This README was created with the assistance of ChatGPT_
 
-Embark on a journey with TAGBAG, the mystical tool that bundles multiple container
-images into a single, nifty `tgz` file. It's like a magic trick for your images,
-where the duplicated blobs get vanished - Poof! - ensuring each one is as unique as
-a snowflake.
+Introducing **TAGBAG**, a powerful tool designed to bundle multiple container
+images into a single, efficient `tgz` file. TAGBAG streamlines your image
+management by eliminating redundant blobs, ensuring that each image is unique
+and optimized for storage.
 
-## How to Use This Wizardry
+## How to Use TAGBAG
 
-### Conjuring Images from the Ether
+### Pulling Images into a Single Archive
 
-Summon a plethora of images and securely tuck them into `images.tgz`:
+Easily gather multiple images and bundle them into a single `images.tgz`
+archive:
 
 ```
 $ tagbag pull                           \
@@ -22,12 +23,12 @@ $ tagbag pull                           \
         -d images.tgz
 ```
 
-During this mystical pull, TAGBAG cleverly sifts through the layers, ensuring duplicates
-are as rare as unicorns.
+TAGBAG intelligently analyzes the layers of the images during this process,
+ensuring that duplicate data is minimized and only unique layers are stored.
 
-For authentication, you have two potions to choose from: Cast a spell with docker login
-to access your desired registry realm, or craft an arcane authentication scroll named
-`auth.json`:
+For authentication, you have two options:
+1. Use `docker login` to authenticate with your registry, or
+2. Create an authentication file (`auth.json`):
 
 ```json
 {
@@ -39,7 +40,7 @@ to access your desired registry realm, or craft an arcane authentication scroll 
 }
 ```
 
-Invoke images with your scroll like so:
+To use the authentication file, run the following:
 
 ```
 $ tagbag pull                           \
@@ -49,47 +50,46 @@ $ tagbag pull                           \
         -d images.tgz
 ```
 
-### Releasing Images Back into the Wild
+### Pushing Images to a New Registry
 
-Ready to set your images free? Dispatch them to a new domain with this incantation:
+To push the images back to a new destination, use the following command:
 
 ```
-$ tagbag push                   \
-        --authfile auth.json    \
-        -s images.tgz           \
+$ tagbag push                           \
+        --authfile auth.json            \
+        -s images.tgz                   \
         --destination docker.io/myaccount
 ```
 
-Remember, if you've captured `alpine:latest` in your tgz spell, it'll be released into
-the wilds of `docker.io/myaccount/alpine:latest`. All the captured images, regardless
-of their origin, will find a new home in this singular mystical repository.
+In this example, the `alpine:latest` image will be pushed to
+`docker.io/myaccount/alpine:latest`. All images in the `tgz` archive,
+regardless of their original source, will be uploaded to the specified
+repository.
 
+### Viewing Differences Between Two Bundles
 
-### Brewing Diffs Between Mystical Bundles
-
-In the realm of TAGBAG, you have the power to unveil the subtle changes between different
-versions of a given `tgz` bundle. First, ensure both versions of your mystical bundle are
-safely harbored in your local sanctum. Then, chant the following incantation:
-
-
-```
-$ tagbag diff			\
-	--source v1.0.0.tgz	\
-	--target v2.0.0.tgz	\
-	-d overlay.tgz
-```
-
-With this spell cast, the veil is lifted, revealing a diff – a magical overlay that
-captures the essence of change. To bestow this newfound knowledge upon an existing
-tgz, perform the following ritual:
-
+You can easily compare the differences between two versions of a `tgz` bundle.
+First, ensure both versions are stored locally, then run the following command
+to generate a diff:
 
 ```
-$ tagbag push			\
-	--source v1.0.0.tgz	\
-	--overlay overlay.tgz	\
-	-d docker.io/myaccount
+$ tagbag diff                            \
+        --source v1.0.0.tgz              \
+        --target v2.0.0.tgz              \
+        -d overlay.tgz
 ```
 
-This will turn your `v1.0.0.tgz` into a `v2.0.0.tgz` and then push to the remote
-registry.
+This will create an overlay that highlights the changes between the two
+versions. To apply the overlay to an existing `tgz` file, use the following
+command:
+
+```
+$ tagbag push                            \
+        --source v1.0.0.tgz              \
+        --overlay overlay.tgz            \
+        -d docker.io/myaccount
+```
+
+This will apply the overlay (`overlay.tgz`) on top of the `v1.0.0.tgz` bundle,
+essentially updating it to the v2.0.0 version. The updated bundle will then be
+pushed to the specified registry.
