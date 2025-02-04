@@ -15,6 +15,7 @@ func main() {
 			pullCommand,
 			pushCommand,
 			diffCommand,
+			versionCommand,
 		},
 	}
 	if err := app.Run(os.Args); err != nil {

@@ -17,17 +17,17 @@ jobs:
 
       - name: Build for linux/amd64
         run: |
-          GOOS=linux GOARCH=amd64 make
+          GOOS=linux GOARCH=amd64 make VERSION=${{ github.ref_name }}
           mv ./output/bin/tagbag ./output/bin/tagbag-linux-amd64
 
       - name: Build for darwin/amd64
         run: |
-          GOOS=darwin GOARCH=amd64 make
+          GOOS=darwin GOARCH=amd64 make VERSION=${{ github.ref_name }}
           mv ./output/bin/tagbag ./output/bin/tagbag-darwin-amd64
 
       - name: Build for darwin/arm64
         run: |
-          GOOS=darwin GOARCH=arm64 make
+          GOOS=darwin GOARCH=arm64 make VERSION=${{ github.ref_name }}
           mv ./output/bin/tagbag ./output/bin/tagbag-darwin-arm64
 
       - name: Publish release
