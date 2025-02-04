@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/containers/image/v5/directory"
 	"github.com/containers/image/v5/types"
@@ -24,7 +23,6 @@ type Storage struct {
 	seen    *Seen
 	curimg  string
 	basedir string
-	mtx     sync.Mutex
 }
 
 // New returns a reference to a Storage using provided directory as base (root).

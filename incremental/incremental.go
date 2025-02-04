@@ -8,7 +8,6 @@ import (
 	"path"
 
 	"github.com/containers/image/v5/copy"
-	"github.com/containers/image/v5/signature"
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/containers/image/v5/types"
 	"github.com/google/uuid"
@@ -38,7 +37,6 @@ type Authentications struct {
 // the other layers (the ones not included in the 'difference') exist.
 type Incremental struct {
 	tmpdir    string
-	polctx    *signature.PolicyContext
 	report    io.Writer
 	auths     Authentications
 	selection copy.ImageListSelection

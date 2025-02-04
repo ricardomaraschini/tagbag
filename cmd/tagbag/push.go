@@ -72,6 +72,10 @@ var pushCommand = &cli.Command{
 		}
 		storage := storage.New(tempdir)
 		images, err := storage.Images()
+		if err != nil {
+			return fmt.Errorf("failed to list images: %w", err)
+		}
+
 		for _, src := range images {
 			if err := storage.Image(src); err != nil {
 				return fmt.Errorf("failed to load image: %w", err)
