@@ -1,0 +1,22 @@
+This command pushes a previously pulled tarball to a registry. The tarball
+layers are pushed as-is, without any modification. The tarball must have
+been previously pulled with the pull command. The --authfile option can be
+used to provide the credentials when pushing to a registry that requires
+authentication:
+
+$ tagbag push                \
+        --authfile auth.json \
+        --source images.tgz  \
+        --destination docker.io/myaccount
+
+All images are pushed to the same repository. You can also overlay a diff
+tarball on top of the images prior to pushing them:
+
+$ tagbag push                            \
+        --source v1.0.0.tgz              \
+        --overlay overlay.tgz            \
+        --destination docker.io/myaccount
+
+On this case overlay.tgz will be lay down on top of v1.0.0.tgz and then
+pushed to the registry. The overlay tarball must have been previously
+created with the diff command.

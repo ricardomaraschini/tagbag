@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path"
@@ -15,15 +16,18 @@ import (
 	"github.com/ricardomaraschini/tagbag/tgz"
 )
 
+//go:embed static/push-usage.txt
+var pushUsageText string
+
 var pushCommand = &cli.Command{
-	Name:  "push",
-	Usage: "Pushes multiple images from a deduplicated tarball",
+	Name:      "push",
+	Usage:     "Pushes multiple images from a deduplicated tarball",
+	UsageText: pushUsageText,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:    "temp",
-			Aliases: []string{"t"},
-			Usage:   "Temporary directory to use",
-			Value:   "/tmp/tagbag",
+			Name:  "temp",
+			Usage: "Temporary directory to use",
+			Value: "/tmp",
 		},
 		&cli.StringFlag{
 			Name:     "source",
@@ -46,22 +50,31 @@ var pushCommand = &cli.Command{
 			Aliases: []string{"o"},
 			Usage:   "Overlay tarball paths",
 		},
+		&cli.BoolFlag{
+			Name:  "insecure",
+			Usage: "Ignore TLS certificate errors",
+			Value: false,
+		},
 	},
 	Action: func(c *cli.Context) error {
-		tempdir := c.String("temp")
 		pol := &signature.Policy{
 			Default: signature.PolicyRequirements{
 				signature.NewPRInsecureAcceptAnything(),
 			},
 		}
+
 		polctx, err := signature.NewPolicyContext(pol)
 		if err != nil {
 			return fmt.Errorf("failed to create policy: %w", err)
 		}
-		if err := os.MkdirAll(tempdir, 0700); err != nil {
-			return fmt.Errorf("failed to create tempdir: %w", err)
+
+		basedir := c.String("temp")
+		tempdir, err := os.MkdirTemp(basedir, "tagbag-*")
+		if err != nil {
+			return fmt.Errorf("failed to create %s directory: %w", tempdir, err)
 		}
 		defer os.RemoveAll(tempdir)
+
 		if err := tgz.Uncompress(c.String("source"), tempdir); err != nil {
 			return fmt.Errorf("failed to uncompress tarball: %w", err)
 		}
@@ -74,6 +87,11 @@ var pushCommand = &cli.Command{
 		images, err := storage.Images()
 		if err != nil {
 			return fmt.Errorf("failed to list images: %w", err)
+		}
+
+		insecure := types.OptionalBoolFalse
+		if c.Bool("insecure") {
+			insecure = types.OptionalBoolTrue
 		}
 
 		for _, src := range images {
@@ -94,7 +112,8 @@ var pushCommand = &cli.Command{
 				storage,
 				&copy.Options{
 					DestinationCtx: &types.SystemContext{
-						AuthFilePath: c.String("authfile"),
+						AuthFilePath:                c.String("authfile"),
+						DockerInsecureSkipTLSVerify: insecure,
 					},
 					SourceCtx:          &types.SystemContext{},
 					ReportWriter:       os.Stdout,

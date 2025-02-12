@@ -1,0 +1,25 @@
+This command pulls and stores multiple images in a single tarball. All
+layers are deduplicated:
+
+$ tagbag pull                         \
+        --image alpine:latest         \
+        --image myrepo/myimage:latest \
+        --output images.tgz
+
+When pulling from a registry that requires authentication, you can use
+the --authfile option to provide the credentials:
+
+$ tagbag pull                         \
+        --authfile auth.json          \
+        --image alpine:latest         \
+        --image myrepo/myimage:latest \
+        --output images.tgz
+
+By default only the image for the current architecture is pulled. To
+pull images for multiple architectures, use the --all option:
+
+$ tagbag pull                         \
+        --image alpine:latest         \
+        --image myrepo/myimage:latest \
+        --all                         \
+        --output images.tgz
