@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 
@@ -14,9 +15,13 @@ import (
 	"github.com/ricardomaraschini/tagbag/tgz"
 )
 
+//go:embed static/pull-usage.txt
+var pullUsageText string
+
 var pullCommand = &cli.Command{
-	Name:  "pull",
-	Usage: "Pull multiple images into a deduplicated tarball",
+	Name:      "pull",
+	Usage:     "Pull multiple images into a deduplicated tarball",
+	UsageText: pullUsageText,
 	Flags: []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:     "image",
@@ -25,14 +30,13 @@ var pullCommand = &cli.Command{
 			Required: true,
 		},
 		&cli.StringFlag{
-			Name:    "temp",
-			Aliases: []string{"t"},
-			Usage:   "Temporary directory to use",
-			Value:   "/tmp/tagbag",
+			Name:  "temp",
+			Usage: "Temporary directory to use",
+			Value: "/tmp",
 		},
 		&cli.StringFlag{
-			Name:    "destination",
-			Aliases: []string{"d"},
+			Name:    "output",
+			Aliases: []string{"o"},
 			Usage:   "Destination tarball",
 			Value:   "./tagbag.tgz",
 		},
@@ -41,14 +45,24 @@ var pullCommand = &cli.Command{
 			Usage: "Path of the authentication file",
 		},
 		&cli.BoolFlag{
+			Name:  "insecure",
+			Usage: "Ignore TLS certificate errors",
+			Value: false,
+		},
+		&cli.BoolFlag{
 			Name:  "all",
 			Usage: "Pull all images (manifest lists)",
 			Value: false,
 		},
 	},
 	Action: func(c *cli.Context) error {
-		tempdir := c.String("temp")
+		basedir := c.String("temp")
+		tempdir, err := os.MkdirTemp(basedir, "tagbag-*")
+		if err != nil {
+			return fmt.Errorf("failed to create %s directory: %w", tempdir, err)
+		}
 		defer os.RemoveAll(tempdir)
+
 		pol := &signature.Policy{
 			Default: signature.PolicyRequirements{
 				signature.NewPRInsecureAcceptAnything(),
@@ -62,6 +76,12 @@ var pullCommand = &cli.Command{
 		if c.Bool("all") {
 			imglist = copy.CopyAllImages
 		}
+
+		insecure := types.OptionalBoolFalse
+		if c.Bool("insecure") {
+			insecure = types.OptionalBoolTrue
+		}
+
 		storage := storage.New(tempdir)
 		for _, src := range c.StringSlice("image") {
 			if err := storage.Image(src); err != nil {
@@ -80,7 +100,8 @@ var pullCommand = &cli.Command{
 				srcref,
 				&copy.Options{
 					SourceCtx: &types.SystemContext{
-						AuthFilePath: c.String("authfile"),
+						AuthFilePath:                c.String("authfile"),
+						DockerInsecureSkipTLSVerify: insecure,
 					},
 					DestinationCtx:     &types.SystemContext{},
 					ReportWriter:       os.Stdout,
@@ -90,8 +111,8 @@ var pullCommand = &cli.Command{
 				return fmt.Errorf("failed copy %s: %w", src, err)
 			}
 		}
-		fmt.Println("Writing file", c.String("destination"))
-		if err = tgz.Compress(tempdir, c.String("destination")); err != nil {
+		fmt.Println("Writing file", c.String("output"))
+		if err = tgz.Compress(tempdir, c.String("output")); err != nil {
 			return fmt.Errorf("failed compress: %w", err)
 		}
 		return nil

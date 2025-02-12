@@ -1,0 +1,12 @@
+This command calculates and stores the difference between two previouly
+pulled tarballs. Here we use v1.0.0.tgz as base and we compare it with
+v2.0.0.tgz. The content present in v2.0.0.tgz but not in v1.0.0.tgz is
+stored in overlay.tgz:
+
+$ tagbag diff               \
+        --source v1.0.0.tgz \
+        --target v2.0.0.tgz \
+        --output overlay.tgz
+
+This overlay.tgz can then be used when pulling to a registry that already
+contains v1.0.0 stored.

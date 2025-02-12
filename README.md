@@ -17,10 +17,10 @@ Easily gather multiple images and bundle them into a single `images.tgz`
 archive:
 
 ```
-$ tagbag pull                           \
-        -i alpine:latest                \
-        -i myrepo/myimage:latest        \
-        -d images.tgz
+$ tagbag pull                         \
+        --image alpine:latest         \
+        --image myrepo/myimage:latest \
+        --output images.tgz
 ```
 
 TAGBAG intelligently analyzes the layers of the images during this process,
@@ -43,11 +43,11 @@ For authentication, you have two options:
 To use the authentication file, run the following:
 
 ```
-$ tagbag pull                           \
-        --authfile auth.json            \
-        -i alpine:latest                \
-        -i myrepo/myimage:latest        \
-        -d images.tgz
+$ tagbag pull                         \
+        --authfile auth.json          \
+        --image alpine:latest         \
+        --image myrepo/myimage:latest \
+        --output images.tgz
 ```
 
 ### Pushing Images to a New Registry
@@ -55,9 +55,9 @@ $ tagbag pull                           \
 To push the images back to a new destination, use the following command:
 
 ```
-$ tagbag push                           \
-        --authfile auth.json            \
-        -s images.tgz                   \
+$ tagbag push                \
+        --authfile auth.json \
+        --source images.tgz  \
         --destination docker.io/myaccount
 ```
 
@@ -73,10 +73,10 @@ First, ensure both versions are stored locally, then run the following command
 to generate a diff:
 
 ```
-$ tagbag diff                            \
-        --source v1.0.0.tgz              \
-        --target v2.0.0.tgz              \
-        -d overlay.tgz
+$ tagbag diff               \
+        --source v1.0.0.tgz \
+        --target v2.0.0.tgz \
+        --output overlay.tgz
 ```
 
 This will create an overlay that highlights the changes between the two
@@ -87,7 +87,7 @@ command:
 $ tagbag push                            \
         --source v1.0.0.tgz              \
         --overlay overlay.tgz            \
-        -d docker.io/myaccount
+        --destination docker.io/myaccount
 ```
 
 This will apply the overlay (`overlay.tgz`) on top of the `v1.0.0.tgz` bundle,
