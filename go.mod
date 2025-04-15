@@ -1,7 +1,6 @@
 module github.com/ricardomaraschini/tagbag
 
-go 1.22.8
-toolchain go1.24.1
+go 1.24.1
 
 require (
 	github.com/containers/image/v5 v5.34.3
