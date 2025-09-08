@@ -3,7 +3,7 @@ module github.com/ricardomaraschini/tagbag
 go 1.24.1
 
 require (
-	github.com/containers/image/v5 v5.36.1
+	github.com/containers/image/v5 v5.36.2
 	github.com/google/uuid v1.6.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/sirupsen/logrus v1.9.3
