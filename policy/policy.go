@@ -1,7 +1,7 @@
 package policy
 
 import (
-	"github.com/containers/image/v5/signature"
+	"go.podman.io/image/v5/signature"
 )
 
 // Context returns the default policy context.

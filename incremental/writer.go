@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
+	"go.podman.io/image/v5/types"
 )
 
 // Writer provides a tool to copy only the layers that are not already

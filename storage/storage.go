@@ -11,9 +11,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/containers/image/v5/directory"
-	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
+	"go.podman.io/image/v5/directory"
+	"go.podman.io/image/v5/types"
 )
 
 // Storage handles the storage of multiple images. It is used to store multiple
