@@ -8,7 +8,7 @@ require (
 	github.com/sirupsen/logrus v1.10.1
 	github.com/stretchr/testify v1.12.1
 	github.com/urfave/cli/v2 v2.27.7
-	go.podman.io/image/v5 v5.41.0
+	go.podman.io/image/v5 v5.41.1
 )
 
 require (
